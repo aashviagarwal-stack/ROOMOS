@@ -277,7 +277,7 @@ export function AddDevice() {
 }
 
 export function Help() {
-  const { say } = useStore(); const [msg, setMsg] = useState("");
+  const { say, addFeedback } = useStore(); const [msg, setMsg] = useState("");
   return (
     <Screen tab="home">
       <Back crumb="Profile" />
@@ -287,7 +287,7 @@ export function Help() {
           <details key={q} className="card"><summary style={{ fontWeight: 600, cursor: "pointer" }}>{q}</summary><p className="small" style={{ marginTop: 8, lineHeight: 1.5, opacity: .9 }}>{a}</p></details>
         ))}
         <label className="fieldwrap" htmlFor="fb"><span className="lbl">Send feedback</span><textarea id="fb" className="field" rows={4} style={{ height: "auto", borderRadius: 18, padding: 14 }} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="What should ROOM.OS do better?" /></label>
-        <Btn disabled={!msg.trim()} onClick={() => { setMsg(""); say("Thanks! Feedback saved on this phone"); }}>Send</Btn>
+        <Btn disabled={!msg.trim()} onClick={() => { addFeedback(msg.trim()); setMsg(""); say("Thanks! Feedback saved on this phone"); }}>Send</Btn>
       </div>
     </Screen>
   );

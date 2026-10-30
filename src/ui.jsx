@@ -9,7 +9,18 @@ export function NavProvider({ initial, children }) {
   const [stack, setStack] = useState([{ r: initial, p: {} }]);
   const [dir, setDir] = useState("fwd");
   const [sheet, setSheet] = useState(null);
-  const go = useCallback((r, p = {}) => { setDir("fwd"); setSheet(null); setStack((s) => [...s, { r, p }]); }, []);
+  const sheetRef = useRef(null); sheetRef.current = sheet;
+  const hist = (fn) => { try { fn(); } catch (e) { /* history unavailable */ } };
+  // Phone back gesture / browser back: close an open sheet, else go back one screen.
+  useEffect(() => {
+    hist(() => history.replaceState({ roomos: 1 }, ""));
+    const onPop = () => {
+      if (sheetRef.current) { setSheet(null); return; }
+      setDir("back"); setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+    };
+    window.addEventListener("popstate", onPop); return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const go = useCallback((r, p = {}) => { setDir("fwd"); setSheet(null); hist(() => history.pushState({ roomos: 1 }, "")); setStack((s) => [...s, { r, p }]); }, []);
   const replace = useCallback((r, p = {}) => { setDir("fwd"); setSheet(null); setStack((s) => [...s.slice(0, -1), { r, p }]); }, []);
   const reset = useCallback((r, p = {}) => { setDir("fwd"); setSheet(null); setStack([{ r, p }]); }, []);
   const back = useCallback(() => { setDir("back"); setSheet(null); setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)); }, []);

@@ -18,6 +18,27 @@ export function StoreProvider({ children }) {
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* quota or blocked */ } }, [s]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  // Deliveries: status follows elapsed time, so orders still arrive after the app is closed and reopened.
+  useEffect(() => {
+    const tick = () => setS((p) => {
+      const open = p.orders.filter((o) => o.status < 3);
+      if (!open.length) return p;
+      let changed = false; const d = structuredClone(p);
+      for (const o of d.orders) {
+        if (o.status >= 3) continue;
+        const t = Date.now() - o.ts; const st = t > 20000 ? 3 : t > 11000 ? 2 : t > 5000 ? 1 : 0;
+        if (st !== o.status) {
+          changed = true; o.status = st;
+          if (st === 3) {
+            const item = d.items.find((i) => i.id === o.itemId); if (item) item.qty += o.qty;
+            d.notifications.unshift({ id: uid("n"), emoji: "📦", title: `${item?.name || "Your order"} arrived`, body: `${o.qty} added to your Snacks inventory.`, ts: Date.now(), read: false, kind: "order" });
+          }
+        }
+      }
+      return changed ? d : p;
+    });
+    tick(); const iv = setInterval(tick, 1500); return () => clearInterval(iv);
+  }, []);
 
   const say = useCallback((msg) => { setToast(msg); const t = setTimeout(() => setToast(null), 2200); timers.current.push(t); }, []);
   const up = useCallback((fn) => setS((p) => fn(structuredClone(p))), []);
@@ -28,11 +49,21 @@ export function StoreProvider({ children }) {
     byCat: (cat) => s.items.filter((i) => i.cat === cat),
     loadSample: () => setS(sampleState()),
     reset: () => setS(emptyState()),
+    isSample: s.scans.some((x) => x.photo === "sample"),
+    exitSample: () => setS(emptyState()),
     signUp: (user) => up((d) => { d.user = { ...d.user, ...user }; d.authed = true; return d; }),
-    logIn: (email) => setS((p) => { const base = p.scans.length || p.items.length > 1 ? p : sampleState(); return { ...base, authed: true, onboarded: true, user: { ...base.user, email: email || base.user.email } }; }),
+    logIn: (email) => setS((p) => { const base = p.user.name || p.scans.length ? p : sampleState(); return { ...base, authed: true, onboarded: true, user: { ...base.user, email: email || base.user.email } }; }),
     logOut: () => up((d) => { d.authed = false; return d; }),
     finishSetup: (room, track) => up((d) => { d.room = { ...d.room, ...room }; d.track = track; d.onboarded = true; return d; }),
-    setQty: (id, qty) => up((d) => { const it = d.items.find((i) => i.id === id); if (it) it.qty = Math.max(0, qty); return d; }),
+    setQty: (id, qty) => up((d) => {
+      const it = d.items.find((i) => i.id === id); if (!it) return d;
+      const n = Math.max(0, qty), eaten = it.qty - n; it.qty = n;
+      if (eaten > 0 && it.cat === "snacks") {
+        d.kcalWeek += eaten * (it.kcal || 150);
+        const day = (new Date().getDay() + 6) % 7; d.weekly.snacks[day][it.unit === "can" ? 1 : 0] += eaten;
+      }
+      return d;
+    }),
     patchItem: (id, patch) => up((d) => { const it = d.items.find((i) => i.id === id); if (it) Object.assign(it, patch); return d; }),
     removeItem: (id) => up((d) => { d.items = d.items.filter((i) => i.id !== id); return d; }),
     addItem: (item) => up((d) => { d.items.push({ id: uid("i"), qty: 1, ...item }); return d; }),
@@ -41,6 +72,7 @@ export function StoreProvider({ children }) {
     setUser: (patch) => up((d) => { d.user = { ...d.user, ...patch }; return d; }),
     setGoals: (patch) => up((d) => { d.goals = { ...d.goals, ...patch }; return d; }),
     markRead: (id) => up((d) => { d.notifications.forEach((n) => { if (!id || n.id === id) n.read = true; }); return d; }),
+    addFeedback: (text) => up((d) => { (d.feedback = d.feedback || []).push({ text, ts: Date.now() }); return d; }),
     addRecent: (q) => up((d) => { const v = q.trim().toLowerCase(); if (v) d.recent = [v, ...d.recent.filter((r) => r !== v)].slice(0, 6); return d; }),
     clearRecent: (q) => up((d) => { d.recent = d.recent.filter((r) => r !== q); return d; }),
     logReading: (id, hrs) => up((d) => {
@@ -56,16 +88,6 @@ export function StoreProvider({ children }) {
     placeOrder: (itemId, qty, auto) => {
       const id = uid("o"); const it = s.items.find((i) => i.id === itemId);
       up((d) => { d.orders.unshift({ id, itemId, qty, total: qty * (it?.price || 0), ts: Date.now(), status: 0, auto }); return d; });
-      const t1 = setTimeout(() => up((d) => { const o = d.orders.find((x) => x.id === id); if (o && o.status < 1) o.status = 1; return d; }), 5000);
-      const t3 = setTimeout(() => up((d) => { const o = d.orders.find((x) => x.id === id); if (o && o.status < 2) o.status = 2; return d; }), 11000);
-      timers.current.push(t3);
-      const t2 = setTimeout(() => up((d) => {
-        const o = d.orders.find((x) => x.id === id); if (!o) return d; o.status = 3;
-        const item = d.items.find((i) => i.id === itemId); if (item) item.qty += qty;
-        d.notifications.unshift({ id: uid("n"), emoji: "📦", title: `${item?.name || "Your order"} arrived`, body: `${qty} added to your Snacks inventory.`, ts: Date.now(), read: false, kind: "order" });
-        return d;
-      }), 20000);
-      timers.current.push(t1, t2);
       return id;
     },
     saveScan: (scan) => {

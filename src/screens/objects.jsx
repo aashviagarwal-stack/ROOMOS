@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Screen, Back, Title, Sub, Bar, Tag, Emoji, Btn, Stepper, Toggle, Weekly, Ring, Sheet, SheetHead, Check, Pills, useNav, Halo } from "../ui.jsx";
 import { Ico, PlayIcon, PauseIcon } from "../icons.jsx";
 import { useStore } from "../store.jsx";
@@ -136,29 +136,37 @@ export function Item() {
 }
 
 /* ---------------- Speaker ---------------- */
+const PLAYLIST = [["Lo-fi Study Mix", "Focus playlist", 6000, "🎧", "var(--orange)"], ["Bollywood Throwbacks", "Your weekend mix", 4500, "🎬", "#c9473f"], ["Rainy Day Acoustic", "Chill playlist", 3900, "🌧️", "#338c8c"], ["Deep Work Beats", "Focus playlist", 5400, "🎯", "#8c66bf"]];
+const mmss = (t) => { t = Math.round(t); const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = t % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
 export function Speaker() {
   const { s, byCat, patchItem } = useStore(); const { go } = useNav();
   const sp = byCat("devices")[0];
   const [playing, setPlaying] = useState(true);
+  const [track, setTrack] = useState(0); const [pos, setPos] = useState(1660);
+  useEffect(() => { if (!playing) return; const iv = setInterval(() => setPos((p) => { const len = PLAYLIST[track][2]; if (p + 1 >= len) { setTrack((t) => (t + 1) % PLAYLIST.length); return 0; } return p + 1; }), 1000); return () => clearInterval(iv); }, [playing, track]);
+  const skip = (dir) => { if (dir < 0 && pos > 5) return setPos(0); setTrack((t) => (t + dir + PLAYLIST.length) % PLAYLIST.length); setPos(0); };
   if (!sp) return <Screen tab="objects"><Back crumb="Room › Objects" /><Title>Speaker</Title><Sub>No speaker found yet.</Sub><Btn onClick={() => go("addDevice")}>Add a device</Btn></Screen>;
   const listen = weekTotal(s.weekly.devices);
+  const [tName, tSub, tLen, tEmoji, tCol] = PLAYLIST[track];
   return (
     <Screen tab="objects">
       <Back crumb="Room › Objects" />
       <Title>Speaker</Title>
       <div className="stack">
         <div className="card">
-          <div className="h3">Now Playing</div>
+          <div className="h3">{playing && sp.connected ? "Now Playing" : "Paused"}</div>
           <div className="row-flex" style={{ marginTop: 10, gap: 14 }}>
-            <div style={{ width: 96, height: 96, borderRadius: 18, background: "var(--orange)", display: "grid", placeItems: "center", flex: "none" }}><Emoji e="🎧" s={50} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 17, fontWeight: 600 }}>Lo-fi Study Mix</div><div className="small" style={{ opacity: .8 }}>Focus playlist · 1h 12m left</div>
-              <div style={{ marginTop: 12 }}><Bar v={0.38} h="thin" /></div><div className="between muted" style={{ color: "#fff", opacity: .7, marginTop: 4 }}><span>27:40</span><span>1:40:00</span></div></div>
+            <div style={{ width: 96, height: 96, borderRadius: 18, background: tCol, display: "grid", placeItems: "center", flex: "none", transition: "background .3s" }}><Emoji e={tEmoji} s={50} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 17, fontWeight: 600 }}>{tName}</div><div className="small" style={{ opacity: .8 }}>{tSub} · {mmss(tLen - pos)} left</div>
+              <input type="range" min="0" max={tLen} value={pos} onChange={(e) => setPos(+e.target.value)} aria-label="Seek" style={{ width: "100%", marginTop: 10, accentColor: "#ffcc00" }} />
+              <div className="between muted" style={{ color: "#fff", opacity: .7 }}><span>{mmss(pos)}</span><span>{mmss(tLen)}</span></div></div>
           </div>
           <div className="row-flex" style={{ justifyContent: "center", gap: 34, marginTop: 8 }}>
-            <button aria-label="Previous"><Ico n="prev" size={30} /></button>
+            <button aria-label="Previous" onClick={() => skip(-1)}><Ico n="prev" size={30} /></button>
             <button aria-label={playing ? "Pause" : "Play"} onClick={() => setPlaying(!playing)} style={{ width: 48, height: 48, borderRadius: 24, background: "rgba(255,255,255,.9)", display: "grid", placeItems: "center" }}>{playing ? <PauseIcon /> : <PlayIcon />}</button>
-            <button aria-label="Next"><Ico n="next" size={30} /></button>
+            <button aria-label="Next" onClick={() => skip(1)}><Ico n="next" size={30} /></button>
           </div>
+          {!sp.connected && <p className="small center" style={{ marginTop: 8, color: "var(--red)" }}>Speaker is disconnected. Reconnect it in Connected devices.</p>}
         </div>
         <div className="card row-flex">
           <div style={{ flex: 1 }}><div className="h3" style={{ fontSize: 14 }}>{sp.name}</div><div className="muted" style={{ color: "#fff", opacity: .8 }}>{sp.connected ? "Connected" : "Not connected"} · Shelf, left wall</div></div>
@@ -313,7 +321,7 @@ export function Diet() {
           </div>
         </div>
         <h2 className="h2">Easy swaps for your shelf</h2>
-        {snacks.filter((i) => swaps[i.name]).map((it) => { const [e, n, save] = swaps[it.name]; const done = added.includes(it.id); return (
+        {snacks.filter((i) => swaps[i.name]).map((it) => { const [e, n, save] = swaps[it.name]; const done = added.includes(it.id) || snacks.some((x) => x.name === n); return (
           <div key={it.id} className="card row-flex" style={{ padding: 10, gap: 8 }}>
             <div className="inner row-flex" style={{ width: 96, padding: 6, gap: 4, flex: "none" }}><Snack it={it} h={44} /><span style={{ fontSize: 10, fontWeight: 600 }}>{it.name}</span></div>
             <Ico n="arrow" size={18} />

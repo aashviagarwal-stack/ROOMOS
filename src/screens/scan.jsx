@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Screen, Back, Title, Sub, Btn, Emoji, Halo, Sheet, SheetHead, Check, Tag, useNav, Pills } from "../ui.jsx";
 import { Ico } from "../icons.jsx";
 import { useStore } from "../store.jsx";
-import { ROOM_PHOTO, CATS, CAT_ORDER, healthScore } from "../data.js";
+import { ROOM_PHOTO, CATS, CAT_ORDER, healthScore, weekTotal } from "../data.js";
 import { loadModel, detectFast, detectPhoto, prepImage, backendName } from "../detector.js";
 import { photoOf, openCat } from "./tabs.jsx";
 
@@ -276,7 +276,7 @@ export function LiveRoom() {
             <Tag tone="green">{Math.round(b.score * 100)}% sure</Tag>
           </div>
           <div className="grid3" style={{ marginTop: 14 }}>
-            {(b.cat === "devices" && match ? [["🔋", Math.round((match.battery || 0) * 100) + "% battery"], ["🎧", "8 hrs this week"], ["🎯", match.focus ? "Focus mode on" : "Focus mode off"]] :
+            {(b.cat === "devices" && match ? [["🔋", Math.round((match.battery || 0) * 100) + "% battery"], ["🎧", weekTotal(s.weekly.devices) + " hrs this week"], ["🎯", match.focus ? "Focus mode on" : "Focus mode off"]] :
               b.cat === "snacks" && match ? [["📦", match.qty + " left"], ["🔥", match.kcal + " kcal each"], ["🛒", "₹" + match.price]] :
               [["📍", scan.place.split(",")[0]], ["🗓️", "Seen " + new Date(scan.ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })], ["🔍", CATS[b.cat]?.distraction + " distraction"]]).map(([e, t]) => (
               <div key={t} className="row" style={{ padding: 8, gap: 6, minHeight: 50 }}><Emoji e={e} s={16} /><span style={{ fontSize: 11, fontWeight: 600 }}>{t}</span></div>

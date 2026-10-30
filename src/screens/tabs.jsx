@@ -19,7 +19,7 @@ export function catStat(s, cat) {
 }
 
 export function Home() {
-  const { s } = useStore(); const { go } = useNav();
+  const { s, isSample, exitSample } = useStore(); const { go, reset } = useNav();
   if (!s.scans.length) return <HomeEmpty />;
   const score = healthScore(s), lv = levels(s);
   const first = (s.user.name || "there").split(" ")[0];
@@ -29,6 +29,13 @@ export function Home() {
   return (
     <Screen tab="home">
       <Header />
+      {isSample && (
+        <div className="card row-flex" style={{ padding: "10px 12px", marginBottom: 10, borderColor: "var(--yellow)", background: "rgba(255,204,0,.14)" }}>
+          <span className="emoji" style={{ fontSize: 20 }}>👀</span>
+          <span className="small" style={{ flex: 1 }}>You're exploring the <b>sample room</b>.</span>
+          <button className="btn sm tan" onClick={() => { exitSample(); reset("splash"); }}>Start my own room</button>
+        </div>
+      )}
       <Title>Hello {first}!</Title>
       <Sub>{low.length ? `${low[0].name} ${low[0].qty === 0 ? "ran out" : "are running low"} — everything else looks good.` : "Your room is running smoothly!"}</Sub>
       <div className="stack">
